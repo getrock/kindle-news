@@ -1,8 +1,13 @@
 import sys
+import os
+import datetime
 import feedparser
 import trafilatura
 from ebooklib import epub
-import datetime
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
 
 # Fix for Windows console Unicode error (Bengali characters)
 if sys.stdout.encoding.lower() != 'utf-8':
@@ -23,6 +28,48 @@ FEEDS = {
     }
 }
 
+def send_to_kindle(epub_filepath):
+    # Pull credentials from GitHub Secrets (Environment Variables)
+    sender_email = os.environ.get('GMAIL_USER')
+    sender_password = os.environ.get('GMAIL_PASS')
+    kindle_email = os.environ.get('KINDLE_EMAIL')
+
+    if not sender_email or not sender_password or not kindle_email:
+        print("Email credentials not found in environment variables. Skipping email.")
+        return
+
+    print(f"\nPreparing to send {epub_filepath} to {kindle_email}...")
+
+    # Create the email message
+    msg = MIMEMultipart()
+    msg['From'] = sender_email
+    msg['To'] = kindle_email
+    msg['Subject'] = "Daily News" # Subject doesn't matter for Kindle
+
+    # Open and attach the EPUB file
+    try:
+        with open(epub_filepath, "rb") as attachment:
+            part = MIMEBase('application', 'epub+zip')
+            part.set_payload(attachment.read())
+            
+        encoders.encode_base64(part)
+        part.add_header('Content-Disposition', f'attachment; filename= {epub_filepath}')
+        msg.attach(part)
+    except Exception as e:
+        print(f"Error attaching file: {e}")
+        return
+
+    # Connect to Gmail server and send
+    try:
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls() # Secure the connection
+        server.login(sender_email, sender_password)
+        server.send_message(msg)
+        server.quit()
+        print("Success! Email sent to Kindle.")
+    except Exception as e:
+        print(f"Error sending email: {e}")
+
 def create_news_epub():
     book = epub.EpubBook()
     
@@ -32,7 +79,7 @@ def create_news_epub():
     book.set_language('en') 
     book.add_author('Automated Python Script')
 
-    # Styling for both the index page and news chapters
+    # Updated Styling: Dark-mode compatible
     style = '''
         body { font-family: sans-serif; margin: 5%; }
         h1 { text-align: center; } 
@@ -49,8 +96,6 @@ def create_news_epub():
     chapter_count = 1
     all_chapters = []
     toc_structure = []
-    
-    # Track articles by category to build an explicit on-page visual Index
     category_data = {}
 
     for category_name, category_feeds in FEEDS.items():
@@ -88,7 +133,6 @@ def create_news_epub():
         
         if category_chapters:
             category_data[category_name] = category_chapters
-            # Creates expandable folders in Kindle TOC sidebar
             toc_structure.append((epub.Section(category_name), tuple(category_chapters)))
 
     # Create a custom categorized front Table of Contents page
@@ -109,13 +153,15 @@ def create_news_epub():
     book.add_item(epub.EpubNcx())
     book.add_item(epub.EpubNav())
 
-    # Put the custom Category Index as the very first reading page
     book.spine = [main_index_page] + all_chapters
 
     output_filename = f'Daily_News_{date_str}.epub'
     epub.write_epub(output_filename, book, {})
     
     print(f"\nSuccess! Saved categorized newspaper to {output_filename}")
+    
+    # Trigger the email automatically
+    send_to_kindle(output_filename)
 
 if __name__ == '__main__':
     create_news_epub()
