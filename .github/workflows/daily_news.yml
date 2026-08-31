@@ -21,7 +21,9 @@ jobs:
       - name: Install System Fonts for Bengali PDF
         run: |
           sudo apt-get update
-          sudo apt-get install -y libpango-1.0-0 libpangoft2-1.0-0 fonts-bengali fonts-noto
+          sudo apt-get install -y libpango-1.0-0 libpangoft2-1.0-0 fontconfig fonts-noto
+          sudo cp kalpurush.ttf /usr/share/fonts/ || true
+          sudo fc-cache -f -v
 
       - name: Install Python Dependencies
         run: pip install -r requirements.txt
