@@ -2,7 +2,7 @@ name: Send Daily News to Kindle and Email
 
 on:
   schedule:
-    - cron: '30 0 * * *'
+    - cron: '15 0 * * *'
   workflow_dispatch:
 
 jobs:
