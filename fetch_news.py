@@ -83,7 +83,7 @@ def create_news_files():
     book.set_identifier(f'daily_news_{date_str}')
     book.set_title(f'Daily News - {date_str}')
     book.set_language('en') 
-    book.add_author('Automated Python Script')
+    book.add_author('Sayantan Basu Mallick')
 
     style = '''
         body { font-family: sans-serif; margin: 5%; }
